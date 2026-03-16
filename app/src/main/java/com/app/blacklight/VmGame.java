@@ -1,75 +1,71 @@
 package com.app.blacklight;
 
-import android.os.CountDownTimer;
+import android.os.Handler;
+import android.os.Looper;
 
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
 public class VmGame extends ViewModel {
-    private final MutableLiveData<Integer> score = new MutableLiveData<Integer>(0);
-    private final MutableLiveData<Integer> time = new MutableLiveData<>(0);
-    private final MutableLiveData<Boolean> isClicked = new MutableLiveData<>(true);
-    private CountDownTimer timer;
+
+    private final MutableLiveData<Integer> randomNumber = new MutableLiveData<>();
+    private final MutableLiveData<Integer> score = new MutableLiveData<>(0);
+
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private boolean running = false;
+
+    private final Runnable gameLoop = new Runnable() {
+        @Override
+        public void run() {
+            Integer prev = randomNumber.getValue();
+            int next;
+            do {
+                next = (int) (Math.random() * 4);
+            } while (prev != null && next == prev);
+
+            randomNumber.setValue(next);
+            handler.postDelayed(this, 1000);
+        }
+    };
+
+    public LiveData<Integer> getRandomNumber() {
+        return randomNumber;
+    }
 
     public LiveData<Integer> getScore() {
         return score;
     }
 
-    public LiveData<Integer> getTime() {
-        return time;
+    public void addScore(int value) {
+        Integer s = score.getValue();
+        if (s == null) s = 0;
+        score.setValue(s + value);
     }
 
-    public LiveData<Boolean> getIsClicked() {
-        return isClicked;
+    public void startGame() {
+        if (running) return;
+        running = true;
+        handler.post(gameLoop);
     }
 
-    public void addScore(int val) {
-        Integer currentScore = score.getValue();
-        if (currentScore == null) currentScore = 0;
-        score.setValue(currentScore + val);
-        isClicked.setValue(true);
+    public boolean isRunning() {
+        return running;
     }
 
-    public void setTime(int val) {
-
+    public void stopGame() {
+        running = false;
+        handler.removeCallbacks(gameLoop);
     }
 
-    public void resetScore() {
-        score.setValue(0);
-    }
-
-    public void resetTime() {
-        time.setValue(0);
-    }
-
-    void startTimer() {
-        if (timer != null) timer.cancel();
-
-        timer = new CountDownTimer(Long.MAX_VALUE, 1000) {
-            @Override
-            public void onTick(long l) {
-                Integer currentTime = time.getValue();
-                if (currentTime == null) currentTime = 0;
-                time.setValue(currentTime + 1);
-
-                Boolean clicked = isClicked.getValue();
-
-                if (clicked != null || !clicked) score.setValue(0);
-                isClicked.setValue(false);
-            }
-
-            @Override
-            public void onFinish() {
-            }
-
-        };
-        timer.start();
+    public void resetGame() {
+        stopGame();
+        score.setValue(0);        // reset score
+        randomNumber.setValue(-1); // reset gray box
     }
 
     @Override
     protected void onCleared() {
-        super.onCleared();
-        if (timer != null) timer.cancel();
+        handler.removeCallbacks(gameLoop);
     }
 }
